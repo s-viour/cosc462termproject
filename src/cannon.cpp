@@ -1,4 +1,5 @@
 #include <iostream>
+#include <stdexcept>
 #include <mpi.h>
 #include <matrix.h>
 

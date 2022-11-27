@@ -12,5 +12,5 @@ target_include_directories(cannon PUBLIC
 )
 
 target_compile_options(cannon PUBLIC
-  -std=c++11
+  "-std=c++11"
 )
