@@ -81,10 +81,47 @@ int main(int argc, char* argv[]) {
     MPI_Recv(my_mtx1.data(), my_mtx1.total_elems(), MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     MPI_Recv(my_mtx2.data(), my_mtx2.total_elems(), MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   }
-  
-  std::cout << "processor " << myrank << " has matrix\n";
-  auto result = matrix_multiply(my_mtx1, my_mtx2);
-  print_matrix(result);
+
+  // begin cannon's algorithm
+  // determine what P_ij we are
+  int my_row = myrank / p;
+  int my_column = myrank % p;
+  int my_index = (my_row + my_column) % nranks;
+  matrix tmpa(submatrix_size);
+  matrix tmpb(submatrix_size);
+  matrix my_result(submatrix_size, 0);
+  for (int l = 0; l < p; ++l) {
+    my_result = matrix_add(my_result, matrix_multiply(my_mtx1, my_mtx2));
+
+    int dest_a = ((my_row * p) + ((my_column + nranks - 1) % nranks)) % nranks;
+    int src_a = ((my_row * p) + ((my_column + 1) % nranks)) % nranks;
+    int dest_b = ((((my_row + nranks - 1) % nranks) * p) + my_column) % nranks;
+    int src_b = (((my_row + 1) % nranks) * p + my_column) % nranks;
+    MPI_Sendrecv(
+      my_mtx1.data(), my_mtx1.total_elems(), MPI_DOUBLE, dest_a, 0,
+      tmpa.data(), tmpa.total_elems(), MPI_DOUBLE, src_a, 0,
+      MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Sendrecv(
+      my_mtx2.data(), my_mtx2.total_elems(), MPI_DOUBLE, dest_b, 0,
+      tmpb.data(), tmpb.total_elems(), MPI_DOUBLE, src_b, 0,
+      MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    my_mtx1 = tmpa;
+    my_mtx2 = tmpb;
+  }
+
+  // gather matrix on processor 0
+  // processors that aren't 0 send their matrices to it
+  if (myrank != 0) {
+    MPI_Send(my_result.data(), my_result.total_elems(), MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+  } else {
+    matrix final_result(n);
+    final_result.set_submatrix(my_result, 0, 0);
+    for (int i = 1; i < nranks; ++i) {
+      MPI_Recv(tmpa.data(), tmpa.total_elems(), MPI_DOUBLE, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      final_result.set_submatrix(tmpa, i / p, i % p);
+    }
+  }
 
   MPI_Finalize();
   return EXIT_SUCCESS;

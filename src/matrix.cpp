@@ -22,8 +22,32 @@ double& matrix::get(int r, int c) {
   return this->_data[c + this->_n * r];
 }
 
+void matrix::set_submatrix(const matrix& submatrix, int r, int c) {
+  int partitions = this->size() / submatrix.size();
+  if (r >= partitions || c >= partitions) {
+    throw std::out_of_range("row or column out of range");
+  }
+
+  // mapping a submatrix onto a matrix
+  // lower bound of row: (r * this->size()) / partitions
+  // upper bound of row: lower_bound + (this->size() / partitions)
+  int rl = (r * this->size()) / partitions;
+  int ru = rl + (this->size() / partitions);
+  int cl = (c * this->size()) / partitions;
+  int cu = cl + (this->size() / partitions);
+  int si = 0, sj = 0;
+  for (int i = rl; i < ru; ++i) {
+    for (int j = cl; j < cu; ++j) {
+      this->get(i, j) = submatrix.at(si, sj);
+      sj += 1;
+    }
+    si += 1;
+    sj = 0;
+  }
+}
+
 matrix matrix::submatrix(int n, int r, int c) const {
-  int partitions = 2 * this->size() / n;
+  int partitions = this->size() / n;
   if (r >= partitions || c >= partitions) {
     throw std::out_of_range("row or column out of range");
   }
@@ -41,6 +65,24 @@ matrix matrix::submatrix(int n, int r, int c) const {
   }
 
   return mtx;
+}
+
+matrix matrix_add(const matrix& a, const matrix& b) {
+  if (a.size() != b.size()) {
+    throw std::invalid_argument("matrices A and B of different sizes");
+  }
+
+  // copy a into c
+  matrix c(a);
+
+  // add
+  for (int i = 0; i < a.size(); ++i) {
+    for (int j = 0; j < b.size(); ++j) {
+      c.get(i, j) += b.at(i, j);
+    }
+  }
+
+  return c;
 }
 
 matrix matrix_multiply(const matrix& a, const matrix& b) {

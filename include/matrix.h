@@ -45,6 +45,12 @@ public:
   /// @return element at position `(c, r)`
   double& get(int r, int c);
 
+  /// @brief set the submatrix at `(c, r)` to `submatrix`
+  /// @param submatrix submatrix to set
+  /// @param r row of submatrix
+  /// @param c column of submatrix
+  void set_submatrix(const matrix& submatrix, int r, int c);
+
   /// @brief get the submatrix of size `n` at row `r` and column `c`
   /// @param  n size of submatrix
   /// @param  r row of submatrix
@@ -54,4 +60,5 @@ public:
 };
 
 
+matrix matrix_add(const matrix&, const matrix&);
 matrix matrix_multiply(const matrix&, const matrix&);
