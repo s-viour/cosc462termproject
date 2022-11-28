@@ -9,6 +9,9 @@ private:
   std::vector<double> _data;
 
 public:
+  /// @brief construct a blank matrix
+  matrix() {}
+
   /// @brief construct an `n*n` matrix of ones
   /// @param  n size of matrix
   matrix(int n) : _n(n), _data(std::vector<double>(n * n, 1)) {};
@@ -20,13 +23,21 @@ public:
 
   /// @brief get the size of the matrix
   /// @return size
-  const int size();
+  const int size() const;
+
+  /// @brief get the total elements in the matrix (equivalent to size() * size())
+  /// @return total number of elements in the matrix
+  const int total_elems() const;
+
+  /// @brief get the data inside the matrix
+  /// @return pointer to the matrix data
+  double* data();
 
   /// @brief return a constant reference to an element
   /// @param  r row of element
   /// @param  c column of element
   /// @return element at position `(c, r)`
-  const double& at(int r, int c);
+  const double& at(int r, int c) const;
 
   /// @brief return a non-const reference to an element
   /// @param r row of element
@@ -39,5 +50,5 @@ public:
   /// @param  r row of submatrix
   /// @param  c column of submatrix
   /// @return submatrix at position `(c, r)` of size `n`
-  matrix submatrix(int n, int r, int c);
+  matrix submatrix(int n, int r, int c) const;
 };
