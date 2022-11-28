@@ -83,7 +83,8 @@ int main(int argc, char* argv[]) {
   }
   
   std::cout << "processor " << myrank << " has matrix\n";
-  print_matrix(my_mtx1);
+  auto result = matrix_multiply(my_mtx1, my_mtx2);
+  print_matrix(result);
 
   MPI_Finalize();
   return EXIT_SUCCESS;

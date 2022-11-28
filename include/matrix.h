@@ -14,7 +14,7 @@ public:
 
   /// @brief construct an `n*n` matrix of ones
   /// @param  n size of matrix
-  matrix(int n) : _n(n), _data(std::vector<double>(n * n, 1)) {};
+  matrix(int n, double val=1) : _n(n), _data(std::vector<double>(n * n, val)) {};
 
   /// @brief construct an `n*n` matrix from a pointer to a list of elements
   /// @param  new_data data to construct the matrix from
@@ -52,3 +52,6 @@ public:
   /// @return submatrix at position `(c, r)` of size `n`
   matrix submatrix(int n, int r, int c) const;
 };
+
+
+matrix matrix_multiply(const matrix&, const matrix&);

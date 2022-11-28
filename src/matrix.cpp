@@ -42,3 +42,21 @@ matrix matrix::submatrix(int n, int r, int c) const {
 
   return mtx;
 }
+
+matrix matrix_multiply(const matrix& a, const matrix& b) {
+  if (a.size() != b.size()) {
+    throw std::invalid_argument("matrices A and B of different sizes");
+  }
+
+  // create our output matrix
+  matrix c(a.size(), 0);
+  for (int i = 0; i < a.size(); ++i) {
+    for (int j = 0; j < a.size(); ++j) {
+      for (int k = 0; k < a.size(); ++k) {
+        c.get(i, j) += a.at(i, k) * b.at(k, j);
+      }
+    }
+  }
+
+  return c;
+}
