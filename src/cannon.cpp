@@ -121,6 +121,8 @@ int main(int argc, char* argv[]) {
 			MPI_Recv(tmpa.data(), tmpa.total_elems(), MPI_DOUBLE, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 			final_result.set_submatrix(tmpa, i / p, i % p);
 		}
+
+		print_matrix(final_result);
 	}
 
 	MPI_Finalize();
