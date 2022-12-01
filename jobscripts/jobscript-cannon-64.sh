@@ -4,9 +4,9 @@
 
 #SBATCH -A isaac-utk0202        ## Information about the project account to be charged
 
-#SBATCH --nodes=1               ## Number of nodes
+#SBATCH --nodes=4               ## Number of nodes
 
-#SBATCH --ntasks-per-node=64     ##-ntasks is used when we want to define total number of processors
+#SBATCH --ntasks-per-node=16     ##-ntasks is used when we want to define total number of processors
 
 #SBATCH --time=01:00:00         ## request resources for one hour  hh:mm:ss
 
