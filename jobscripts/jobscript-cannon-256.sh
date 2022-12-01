@@ -6,7 +6,7 @@
 
 #SBATCH --nodes=1               ## Number of nodes
 
-#SBATCH --ntasks-per-node=8     ##-ntasks is used when we want to define total number of processors
+#SBATCH --ntasks-per-node=256     ##-ntasks is used when we want to define total number of processors
 
 #SBATCH --time=01:00:00         ## request resources for one hour  hh:mm:ss
 
