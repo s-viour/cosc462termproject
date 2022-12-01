@@ -2,8 +2,9 @@
 #include <stdexcept>
 #include <cmath>
 #include <mpi.h>
-#include <matrix.h>
 #include <unistd.h>
+#include <matrix.h>
+#include <timer.h>
 
 
 struct point {
@@ -29,7 +30,11 @@ void print_matrix(const matrix&);
 
 
 int main(int argc, char* argv[]) {
+	// initialize timer tracker
+	timer main_timer;
+	
 	MPI_Init(&argc, &argv);
+	main_timer.start_compute();
 
 	// argument checking & parsing
 	if (argc != 2) {
@@ -52,6 +57,7 @@ int main(int argc, char* argv[]) {
 	int nranks, myrank;
 	MPI_Comm_size(MPI_COMM_WORLD, &nranks);
 	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+	
 
 	// size of each submatrix will be n / p
 	//   where p = sqrt(P)
@@ -76,6 +82,8 @@ int main(int argc, char* argv[]) {
 	
 	// partition matrices exactly like cannon's algorithm at first
 	// do this among the bottom layer (k = 0)
+	main_timer.end_compute();
+	main_timer.start_communication();
 	if (myrank == 0) {
 		auto mtx1 = matrix(n);
 		auto mtx2 = matrix(n);
@@ -141,23 +149,33 @@ int main(int argc, char* argv[]) {
 	MPI_Bcast(my_mtx1.data(), my_mtx1.total_elems(), MPI_DOUBLE, my_point.k, row_comm);
 	MPI_Bcast(my_mtx2.data(), my_mtx2.total_elems(), MPI_DOUBLE, my_point.k, column_comm);
 
+	main_timer.end_communication();
+
 
 	// at this point, each processor should multiply its two matrices
+	main_timer.start_compute();
 	auto my_result = matrix_multiply(my_mtx1, my_mtx2);
 	auto tmp_result = matrix(my_result);
+	main_timer.end_compute();
 
 	// collapse the tower
 	for (int k = p - 1; k > 0; --k) {
 		if (my_point.k == k) {
 			// processor on upper level sends down one level
 			int dest = map_processor_to_1d(my_point.i, my_point.j, my_point.k - 1, p);
+			main_timer.start_communication();
 			MPI_Send(my_result.data(), my_result.total_elems(), MPI_DOUBLE, dest, 0, MPI_COMM_WORLD);
+			main_timer.end_communication();
 		} else if (my_point.k == k - 1) {
 			// processor on lower level receives and adds to its own result
 			int src = map_processor_to_1d(my_point.i, my_point.j, my_point.k + 1, p);
+			main_timer.start_communication();
 			MPI_Recv(tmp_result.data(), tmp_result.total_elems(), MPI_DOUBLE, src, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			main_timer.end_communication();
 
+			main_timer.start_compute();
 			my_result = matrix_add(my_result, tmp_result);
+			main_timer.end_compute();
 		}
 		MPI_Barrier(MPI_COMM_WORLD);
 	}
@@ -166,8 +184,10 @@ int main(int argc, char* argv[]) {
 
 	// once this loop is complete, each processor on level k=0
 	// has their part of the full matrix, so now we just need to recombine
+	main_timer.start_communication();
 	if (myrank != 0 && my_point.k == 0) {
 		MPI_Send(my_result.data(), my_result.total_elems(), MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+		main_timer.end_communication();
 	} else if (myrank == 0) {
 		matrix final_result(n);
 		final_result.set_submatrix(my_result, 0, 0);
@@ -183,8 +203,10 @@ int main(int argc, char* argv[]) {
 				final_result.set_submatrix(my_result, i, j);
 			}
 		}
+		main_timer.end_communication();
 
-		print_matrix(final_result);
+		std::cout << "computation time: " << main_timer.total_compute_time() << '\n'
+			<< "communication time: " << main_timer.total_communication_time() << '\n';
 	}
 
 

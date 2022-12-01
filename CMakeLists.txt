@@ -5,11 +5,13 @@ project(cosc462termproject)
 add_executable(cannon
   ${PROJECT_SOURCE_DIR}/src/cannon.cpp
   ${PROJECT_SOURCE_DIR}/src/matrix.cpp
+  ${PROJECT_SOURCE_DIR}/src/timer.cpp
 )
 
 add_executable(dns
   ${PROJECT_SOURCE_DIR}/src/dns.cpp
   ${PROJECT_SOURCE_DIR}/src/matrix.cpp
+  ${PROJECT_SOURCE_DIR}/src/timer.cpp
 )
 
 target_include_directories(cannon PUBLIC

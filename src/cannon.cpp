@@ -3,13 +3,18 @@
 #include <cmath>
 #include <mpi.h>
 #include <matrix.h>
+#include <timer.h>
 
 
 void print_matrix(const matrix&);
 
 
 int main(int argc, char* argv[]) {
+	// initialize timer tracker
+	timer main_timer;
+
 	MPI_Init(&argc, &argv);
+	main_timer.start_compute();
 
 	// argument checking & parsing
 	if (argc != 2) {
@@ -41,6 +46,8 @@ int main(int argc, char* argv[]) {
 	matrix my_mtx1(submatrix_size);
 	matrix my_mtx2(submatrix_size);
 
+	main_timer.end_compute();
+	main_timer.start_communication();
 	// processor 0 needs to create two big matrices and partition them
 	if (myrank == 0) {
 		auto mtx1 = matrix(n);
@@ -81,6 +88,7 @@ int main(int argc, char* argv[]) {
 		MPI_Recv(my_mtx1.data(), my_mtx1.total_elems(), MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		MPI_Recv(my_mtx2.data(), my_mtx2.total_elems(), MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 	}
+	main_timer.end_communication();
 
 	// begin cannon's algorithm
 	// determine what P_ij we are
@@ -91,8 +99,11 @@ int main(int argc, char* argv[]) {
 	matrix tmpb(submatrix_size);
 	matrix my_result(submatrix_size, 0);
 	for (int l = 0; l < p; ++l) {
+		main_timer.start_compute();
 		my_result = matrix_add(my_result, matrix_multiply(my_mtx1, my_mtx2));
+		main_timer.end_compute();
 
+		main_timer.start_communication();
 		int dest_a = ((my_row * p) + ((my_column + nranks - 1) % nranks)) % nranks;
 		int src_a = ((my_row * p) + ((my_column + 1) % nranks)) % nranks;
 		int dest_b = ((((my_row + nranks - 1) % nranks) * p) + my_column) % nranks;
@@ -105,6 +116,8 @@ int main(int argc, char* argv[]) {
 			my_mtx2.data(), my_mtx2.total_elems(), MPI_DOUBLE, dest_b, 0,
 			tmpb.data(), tmpb.total_elems(), MPI_DOUBLE, src_b, 0,
 			MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		
+		main_timer.end_communication();
 
 		my_mtx1 = tmpa;
 		my_mtx2 = tmpb;
@@ -112,8 +125,10 @@ int main(int argc, char* argv[]) {
 
 	// gather matrix on processor 0
 	// processors that aren't 0 send their matrices to it
+	main_timer.start_communication();
 	if (myrank != 0) {
 		MPI_Send(my_result.data(), my_result.total_elems(), MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+		main_timer.end_communication();
 	} else {
 		matrix final_result(n);
 		final_result.set_submatrix(my_result, 0, 0);
@@ -121,8 +136,10 @@ int main(int argc, char* argv[]) {
 			MPI_Recv(tmpa.data(), tmpa.total_elems(), MPI_DOUBLE, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 			final_result.set_submatrix(tmpa, i / p, i % p);
 		}
+		main_timer.end_communication();
 
-		print_matrix(final_result);
+		std::cout << "computation time: " << main_timer.total_compute_time() << '\n'
+			<< "communication time: " << main_timer.total_communication_time() << '\n';
 	}
 
 	MPI_Finalize();
