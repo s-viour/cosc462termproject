@@ -12,9 +12,9 @@
 
 #SBATCH --partition=condo-cs462 ## Campus-<name> are partitions that is shard between all UT campuses. use 'sinfo' to check available partitions
 
-#SBATCH -e cannon.stderr        ## Errors will be written to this file
+#SBATCH -e dns.stderr        ## Errors will be written to this file
 
-#SBATCH -o cannon.stdout        ## standard output written to this file. It is recommended that error and standard output be written to the same file
+#SBATCH -o dns.stdout        ## standard output written to this file. It is recommended that error and standard output be written to the same file
 
 #SBATCH --qos=condo             ## must use the qos associated with the partition
 
