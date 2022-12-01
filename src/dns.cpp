@@ -3,6 +3,7 @@
 #include <cmath>
 #include <mpi.h>
 #include <matrix.h>
+#include <unistd.h>
 
 
 struct point {
@@ -60,6 +61,18 @@ int main(int argc, char* argv[]) {
 	matrix my_mtx1(submatrix_size);
 	matrix my_mtx2(submatrix_size);
 	auto my_point = map_processor_to_3d(myrank, p);
+
+	// setup communicators for the layer, row, and column
+	MPI_Comm layer_comm;
+	MPI_Comm row_comm;
+	MPI_Comm column_comm;
+	MPI_Comm_split(MPI_COMM_WORLD, my_point.k, myrank, &layer_comm);
+	MPI_Comm_split(layer_comm, my_point.i, myrank, &row_comm);
+	MPI_Comm_split(layer_comm, my_point.j, myrank, &column_comm);
+
+	int my_row_rank, my_col_rank;
+	MPI_Comm_rank(row_comm, &my_row_rank);
+	MPI_Comm_rank(column_comm, &my_col_rank);
 	
 	// partition matrices exactly like cannon's algorithm at first
 	// do this among the bottom layer (k = 0)
@@ -88,28 +101,28 @@ int main(int argc, char* argv[]) {
 			}
 		}
 	} else if (my_point.k == 0) {
-		//std::clog << "processor " << myrank << " getting submatrix\n";
 		MPI_Recv(my_mtx1.data(), my_mtx1.total_elems(), MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		MPI_Recv(my_mtx2.data(), my_mtx2.total_elems(), MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 	}
+
 
 	// at this point, all the submatrices are partitioned along layer 0
 	// now, we need to copy the jth column of A to the (k = j)th layer
 	if (my_point.k == 0) {
 		if (my_point.j != 0) {
-			int proc = map_processor_to_1d(my_point.i, my_point.j, my_point.j, p);
+			int proc = map_processor_to_1d(my_point.i, my_point.j, my_point.j, p);	
 			MPI_Send(my_mtx1.data(), my_mtx1.total_elems(), MPI_DOUBLE, proc, 0, MPI_COMM_WORLD);
 		}
 	} else {
 		// receive from bottom layer
-		if (my_point.i != 0) {
+		if (my_point.j != 0 && my_point.k == my_point.j) {
 			int src = map_processor_to_1d(my_point.i, my_point.j, 0, p);
 			MPI_Recv(my_mtx1.data(), my_mtx1.total_elems(), MPI_DOUBLE, src, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		}
 	}
 
+
 	// now we need to copy the ith column of B to the (k = ith) layer
-	
 	if (my_point.k == 0) {
 		if (my_point.i != 0) {
 			int proc = map_processor_to_1d(my_point.i, my_point.j, my_point.i, p);
@@ -117,11 +130,17 @@ int main(int argc, char* argv[]) {
 		}
 	} else {
 		// receive from bottom layer
-		if (my_point.j != 0) {
+		if (my_point.i != 0 && my_point.i == my_point.k) {
 			int src = map_processor_to_1d(my_point.i, my_point.j, 0, p);
 			MPI_Recv(my_mtx2.data(), my_mtx2.total_elems(), MPI_DOUBLE, src, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		}
 	}
+
+	// now the submatrices have been given to each layer
+	// now we just need to copy them across the entire layer
+	MPI_Bcast(my_mtx1.data(), my_mtx1.total_elems(), MPI_DOUBLE, my_point.k, row_comm);
+	MPI_Bcast(my_mtx2.data(), my_mtx2.total_elems(), MPI_DOUBLE, my_point.k, column_comm);
+
 
 	// at this point, each processor should multiply its two matrices
 	auto my_result = matrix_multiply(my_mtx1, my_mtx2);
@@ -140,7 +159,10 @@ int main(int argc, char* argv[]) {
 
 			my_result = matrix_add(my_result, tmp_result);
 		}
+		MPI_Barrier(MPI_COMM_WORLD);
 	}
+
+	MPI_Barrier(MPI_COMM_WORLD);
 
 	// once this loop is complete, each processor on level k=0
 	// has their part of the full matrix, so now we just need to recombine
@@ -166,6 +188,9 @@ int main(int argc, char* argv[]) {
 	}
 
 
+	MPI_Comm_free(&layer_comm);
+	MPI_Comm_free(&row_comm);
+	MPI_Comm_free(&column_comm);
 	MPI_Finalize();
 	return EXIT_SUCCESS;
 }
@@ -173,7 +198,7 @@ int main(int argc, char* argv[]) {
 // implementation for these two functions sourced from 
 // https://stackoverflow.com/questions/7367770/how-to-flatten-or-index-3d-array-in-1d-array
 int map_processor_to_1d(int i, int j, int k, int n) {
-	return (k * n * n) + (j * n) + i;
+	return i + n * (j + n * k);
 }
 
 point map_processor_to_3d(int p, int n) {
